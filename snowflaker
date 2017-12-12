@@ -5,19 +5,28 @@ import os
 import shutil
 import csv
 
-dir_name = os.path.dirname(os.path.abspath(__file__))
-arg = ''
+def get_cmd():
+    print("\033[1;32mWhat would you like to do? Your options are \"snowflakerize\" or \"undo\"\033[1;0m")
+    cmd = raw_input("\033[1;32mType \"s\" for snowflakerize or \"u\" for undo: \033[1;0m").strip()
+    return cmd
 
-if len(sys.argv) > 1:
-    arg = sys.argv[1]
+def get_target_directory():
+    dir_name = raw_input("\033[1;32mDrag and drop directory to terminal and press enter: \033[1;0m").strip()
+    return dir_name
 
-with open('snowflakes.csv', mode='r') as infile:
-    reader = csv.reader(infile)
-    snowflake_map = dict((rows[0],rows[1]) for rows in reader)
+def snowflakes_exist():
+    exists = os.path.isfile('snowflakes.csv')
+    return exists
+
+def create_snowflake_map():
+    with open('snowflakes.csv', mode='r') as infile:
+        reader = csv.reader(infile)
+        snowflake_map = dict((rows[0],rows[1]) for rows in reader)
+        return snowflake_map
 
 def convert():
     for file in os.listdir("."):
-        if file in ['snowflaker', 'snowflakes.csv']:
+        if file in ['snowflakes.csv']:
             continue
         file_parts = file.split('.')
         filename = file_parts[0]
@@ -31,7 +40,7 @@ def convert():
 
 def undo():
     for file in os.listdir("."):
-        if file in ['snowflaker', 'snowflakes.csv']:
+        if file in ['snowflakes.csv']:
             continue
         file_parts = file.split('.')
         filename = file_parts[0]
@@ -45,7 +54,19 @@ def undo():
         else:
             print "Skipping %s: Not a snowflake" % file
 
-if arg == 'undo':
+cmd = get_cmd()
+if (cmd != 's' and cmd != 'u'):
+    print("Did not understand \"%s\"" %cmd)
+    sys.exit()
+
+dir_name = get_target_directory()
+os.chdir(dir_name)
+snowflakes = snowflakes_exist()
+if (not snowflakes):
+    sys.exit("There doesn't appear to be a snowflakes.csv file in this directory")
+
+snowflake_map = create_snowflake_map()
+if cmd == 'u':
     undo()
 else:
     convert()

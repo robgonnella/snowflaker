@@ -1,0 +1,11 @@
+#!/bin/bash
+
+dir=$(dirname "$(realpath $0)")
+cp ${dir}/snowflaker /usr/local/bin/
+
+printf "\e[32mInstalling snowflaker...\n"
+sleep 5
+printf "Done! You may now use snowflaker from any directory by typing
+\"snowflaker\" in terminal\e[0m\n"
+sleep 5
+

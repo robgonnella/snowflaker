@@ -1,0 +1,8 @@
+#!/bin/bash
+
+rm /usr/local/bin/snowflaker
+
+printf "\e[32mUninstalling snowflaker...\n"
+sleep 5
+printf "Done! Snowflaker has been successfully uninstalled\e[0m\n"
+sleep 5
