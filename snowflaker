@@ -5,43 +5,60 @@ import os
 import shutil
 import csv
 
+def die(msg):
+    sys.exit('\33[1;31m%s\033[1;0m' % msg)
+
+def get_input(msg):
+    return raw_input('\033[1;32m%s\033[1;0m' % msg).strip()
+
+def print_color(msg):
+    print('\033[1;32m%s\033[1;0m' %msg)
+
 def get_cmd():
-    print("\033[1;32mWhat would you like to do? Your options are \"snowflakerize\" or \"undo\"\033[1;0m")
-    cmd = raw_input("\033[1;32mType \"s\" for snowflakerize or \"u\" for undo: \033[1;0m").strip()
-    return cmd
+    print_color(
+        'What would you like to do?'
+        ' Your options are \"snowflakerize\" or \"undo\"')
+    return get_input('Type \"s\" for snowflakerize or \"u\" for undo: ')
 
 def get_target_directory():
-    dir_name = raw_input("\033[1;32mDrag and drop directory to terminal and press enter: \033[1;0m").strip()
+    dir_name = get_input(
+        'Drag and drop directory to terminal and press enter: ')
+    if (not os.path.isdir(dir_name)):
+        die('Target must be a directory')
     return dir_name
 
-def snowflakes_exist():
-    exists = os.path.isfile('snowflakes.csv')
-    return exists
+def get_csv_path():
+    csv_path = get_input('Drag and drop csv to terminal and press enter: ')
+    if (not os.path.isfile(csv_path)):
+        die('Snowflake map must be csv file')
 
-def create_snowflake_map():
-    with open('snowflakes.csv', mode='r') as infile:
+    if (not csv_path.endswith('.csv')):
+        die('Snowflake map must be csv file')
+
+    return csv_path
+
+def create_snowflake_map(path):
+    with open(path, mode='r') as infile:
         reader = csv.reader(infile)
         snowflake_map = dict((rows[0],rows[1]) for rows in reader)
         return snowflake_map
 
 def convert():
-    for file in os.listdir("."):
-        if file in ['snowflakes.csv']:
-            continue
+    for file in os.listdir(target_dir):
         file_parts = file.split('.')
         filename = file_parts[0]
         ext = file_parts[1]
         if filename in snowflake_map:
             new_name = snowflake_map[filename] + '.' + ext
-            print "\033[1;32mSnowflakerizing!\033[1;0m", " %s -----> %s" %(file, new_name)
+            print('\033[1;32mSnowflakerizing!\033[1;0m'
+                ' %s -----> %s' %(file, new_name))
             os.rename(file, new_name)
         else:
-            print "Skipping %s: Not in list of acceptable snowflakes or already snowflakerized" % file
+            print('Skipping %s: Not in list of acceptable snowflakes'
+                ' or already snowflakerized' % file)
 
 def undo():
-    for file in os.listdir("."):
-        if file in ['snowflakes.csv']:
-            continue
+    for file in os.listdir(target_dir):
         file_parts = file.split('.')
         filename = file_parts[0]
         ext = file_parts[1]
@@ -49,23 +66,21 @@ def undo():
             for origin in snowflake_map:
                 if snowflake_map[origin] == filename:
                     new_name = origin + '.' + ext
-                    print "\033[1;32mResetting\033[1;0m", " %s -----> %s" %(file, new_name)
+                    print('\033[1;32mResetting\033[1;0m'
+                    ' %s -----> %s' %(file, new_name))
                     os.rename(file, new_name)
         else:
-            print "Skipping %s: Not a snowflake" % file
+            print 'Skipping %s: Not a snowflake' % file
 
 cmd = get_cmd()
 if (cmd != 's' and cmd != 'u'):
-    print("Did not understand \"%s\"" %cmd)
-    sys.exit()
+    die('Did not understand command \"%s\"' %cmd)
 
-dir_name = get_target_directory()
-os.chdir(dir_name)
-snowflakes = snowflakes_exist()
-if (not snowflakes):
-    sys.exit("There doesn't appear to be a snowflakes.csv file in this directory")
+target_dir = get_target_directory()
+csv_path = get_csv_path()
+os.chdir(target_dir)
+snowflake_map = create_snowflake_map(csv_path)
 
-snowflake_map = create_snowflake_map()
 if cmd == 'u':
     undo()
 else:
