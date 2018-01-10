@@ -78,26 +78,22 @@ def reverse(target_dir, snowflake_map):
     for file in os.listdir(target_dir):
         if re.search('.DS_Store', file):
             continue
+        candidate = False
         ext = file.split('.')[1]
-        for origin in snowflake_map:
-            snowflake_parts = snowflake_map[origin].split('_')
-            snowflake = snowflake_parts[0]
-            underscore = snowflake_parts[1]
-            candidate = re.search(snowflake, file)
-            if (candidate):
-                print('checking candidate: %s against: '
-                    '%s' %(file, snowflake_map[origin]))
-                file_id = file.split('_')[6]
-                print 'origin id: %s' % underscore
-                print 'file id: %s' % file_id
-                full_match = file_id == underscore
-                if full_match:
-                    print '\033[1;32mMatch!\033[1;0m'
-                    print("\033[1;32mConverting QA file "
-                        "%s ---> %s\033[1;0m\n" %(file, origin))
-                    new_name = origin + '.' + ext
-                    os.rename(file, new_name)
-                    break
+        file_session_id = file.split('_')[6]
+        file_pname = re.search(r'[Pp]\d{4}', file)
+        if file_pname:
+            candidate = file_pname.group(0) + '_' + file_session_id
+            print 'Checking candidate: %s' % candidate
+            if (candidate in snowflake_map.values()):
+                for origin in snowflake_map:
+                    if snowflake_map[origin] == candidate:
+                        print '\033[1;32mMatch!\033[1;0m'
+                        print("\033[1;32mConverting QA file "
+                            "%s ---> %s\033[1;0m\n" %(file, origin))
+                        new_name = origin + '.' + ext
+                        os.rename(file, new_name)
+                        break
 
 
 
