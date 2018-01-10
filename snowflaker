@@ -2,8 +2,8 @@
 
 import sys
 import os
-import shutil
 import csv
+import re
 
 def die(msg):
     sys.exit('\33[1;31m%s\033[1;0m' % msg)
@@ -17,8 +17,9 @@ def print_color(msg):
 def get_cmd():
     print_color(
         'What would you like to do?'
-        ' Your options are \"snowflakerize\" or \"undo\"')
-    return get_input('Type \"s\" for snowflakerize or \"u\" for undo: ')
+        ' Your options are \"snowflakerize\", \"undo\", or \"reverse-qa\"')
+    return get_input('Type \"s\" for snowflakerize, \"u\" for undo, or '
+        '\"r\" for reverse-qa: ')
 
 def get_target_directory():
     dir_name = get_input(
@@ -43,7 +44,7 @@ def create_snowflake_map(path):
         snowflake_map = dict((rows[0],rows[1]) for rows in reader)
         return snowflake_map
 
-def convert():
+def convert(target_dir, snowflake_map):
     for file in os.listdir(target_dir):
         file_parts = file.split('.')
         filename = file_parts[0]
@@ -57,7 +58,7 @@ def convert():
             print('Skipping %s: Not in list of acceptable snowflakes'
                 ' or already snowflakerized' % file)
 
-def undo():
+def undo(target_dir, snowflake_map):
     for file in os.listdir(target_dir):
         file_parts = file.split('.')
         filename = file_parts[0]
@@ -72,17 +73,50 @@ def undo():
         else:
             print 'Skipping %s: Not a snowflake' % file
 
-cmd = get_cmd()
-if (cmd != 's' and cmd != 'u'):
-    die('Did not understand command \"%s\"' %cmd)
+def reverse(target_dir, snowflake_map):
+    print "\n"
+    for file in os.listdir(target_dir):
+        if re.search('.DS_Store', file):
+            continue
+        ext = file.split('.')[1]
+        for origin in snowflake_map:
+            snowflake_parts = snowflake_map[origin].split('_')
+            snowflake = snowflake_parts[0]
+            underscore = snowflake_parts[1]
+            candidate = re.search(snowflake, file)
+            if (candidate):
+                print('checking candidate: %s against: '
+                    '%s' %(file, snowflake_map[origin]))
+                file_id = file.split('_')[6]
+                print 'origin id: %s' % underscore
+                print 'file id: %s' % file_id
+                full_match = file_id == underscore
+                if full_match:
+                    print '\033[1;32mMatch!\033[1;0m'
+                    print("\033[1;32mConverting QA file "
+                        "%s ---> %s\033[1;0m\n" %(file, origin))
+                    new_name = origin + '.' + ext
+                    os.rename(file, new_name)
+                    break
 
-target_dir = get_target_directory()
-csv_path = get_csv_path()
-os.chdir(target_dir)
-snowflake_map = create_snowflake_map(csv_path)
 
-if cmd == 'u':
-    undo()
-else:
-    convert()
+
+def run():
+    cmd = get_cmd()
+    if (cmd != 's' and cmd != 'u' and cmd != 'r'):
+        die('Did not understand command \"%s\"' %cmd)
+
+    target_dir = get_target_directory()
+    csv_path = get_csv_path()
+    os.chdir(target_dir)
+    snowflake_map = create_snowflake_map(csv_path)
+
+    if cmd == 'u':
+        undo(target_dir, snowflake_map)
+    elif cmd == 's':
+        convert(target_dir, snowflake_map)
+    else:
+        reverse(target_dir, snowflake_map)
+
+run()
 
