@@ -22,19 +22,34 @@ def get_cmd():
         '\"r\" for reverse-qa: ')
 
 def get_target_directory():
+    print "\n"
     dir_name = get_input(
-        'Drag and drop directory to terminal and press enter: ')
+        'Drag and drop target directory to terminal and press enter: ')
     if (not os.path.isdir(dir_name)):
         die('Target must be a directory')
     return dir_name
 
 def get_csv_path():
-    csv_path = get_input('Drag and drop csv to terminal and press enter: ')
+    print "\n"
+    csv_path = get_input('Drag and drop snowflake csv to terminal '
+        'and press enter: ')
     if (not os.path.isfile(csv_path)):
         die('Snowflake map must be csv file')
 
     if (not csv_path.endswith('.csv')):
         die('Snowflake map must be csv file')
+
+    return csv_path
+
+def get_qa_csv():
+    print "\n"
+    csv_path = get_input('Drag and drop QA csv file to terminal and '
+        'press enter: ')
+    if (not os.path.isfile(csv_path)):
+        die('QA file must be csv file')
+
+    if (not csv_path.endswith('.csv')):
+        die('QA file must be csv file')
 
     return csv_path
 
@@ -73,46 +88,67 @@ def undo(target_dir, snowflake_map):
         else:
             print 'Skipping %s: Not a snowflake' % file
 
-def reverse(target_dir, snowflake_map):
-    print "\n"
-    for file in os.listdir(target_dir):
-        if re.search('.DS_Store', file):
+def reverse(qa_file, snowflake_map):
+    new_file = [];
+    dirname = os.path.dirname(qa_file)
+    outname = 'qa_mapping.csv'
+    out_path = dirname + '/' + outname
+    infile = open(qa_file)
+    reader = csv.reader(infile)
+    for row in reader:
+        filename = row[0]
+        if not filename:
             continue
-        candidate = False
-        ext = file.split('.')[1]
-        file_session_id = file.split('_')[6]
-        file_pname = re.search(r'[Pp]\d{4}', file)
-        if file_pname:
-            candidate = file_pname.group(0) + '_' + file_session_id
-            print 'Checking candidate: %s' % candidate
-            if (candidate in snowflake_map.values()):
-                for origin in snowflake_map:
-                    if snowflake_map[origin] == candidate:
-                        print '\033[1;32mMatch!\033[1;0m'
-                        print("\033[1;32mConverting QA file "
-                            "%s ---> %s\033[1;0m\n" %(file, origin))
-                        new_name = origin + '.' + ext
-                        os.rename(file, new_name)
-                        break
-
-
+        if not re.search(r'RAW_', filename):
+            new_file.append(row)
+            continue
+        p_name = re.search(r'[Pp]\d{4}', filename)
+        ext = filename.split('.')[1]
+        file_id = filename.split('_')[6]
+        candidate = p_name.group(0) + '_' + file_id
+        print 'Candidate: %s' % candidate
+        if (candidate in snowflake_map.values()):
+            for origin in snowflake_map:
+                if snowflake_map[origin] == candidate:
+                    new_name = origin + '.' + ext
+                    row.append(new_name)
+                    new_file.append(row)
+                    print("\033[1;32mMapping "
+                        "%s ---> %s\033[1;0m\n" %(filename, new_name))
+                    break
+        else:
+            new_file.append(row)
+    with open(out_path, mode='w') as outfile:
+        writer = csv.writer(outfile, lineterminator='\n')
+        writer.writerows(new_file)
+        print "\n"
+        print '========================='
+        print "\033[1;36mMappings can be found at: \033[1;0m%s" % out_path
+        print '========================='
+        print "\n"
 
 def run():
     cmd = get_cmd()
     if (cmd != 's' and cmd != 'u' and cmd != 'r'):
         die('Did not understand command \"%s\"' %cmd)
 
-    target_dir = get_target_directory()
+    if cmd != 'r':
+        target_dir = get_target_directory()
+        os.chdir(target_dir)
+
+    if cmd == 'r':
+        qa_file = get_qa_csv()
+
     csv_path = get_csv_path()
-    os.chdir(target_dir)
     snowflake_map = create_snowflake_map(csv_path)
+
 
     if cmd == 'u':
         undo(target_dir, snowflake_map)
     elif cmd == 's':
         convert(target_dir, snowflake_map)
     else:
-        reverse(target_dir, snowflake_map)
+        reverse(qa_file, snowflake_map)
 
 run()
 
