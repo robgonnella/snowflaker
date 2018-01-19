@@ -236,20 +236,20 @@ def run():
     print_color(logo, CYAN)
     parser = OptionParser(usage='Usage: %prog [option]')
     parser.add_option(
-        '-s', '--snowflakerize', action="store_true", dest='s',
+        '-s', '--snowflakify', action="store_true", dest='s',
         help='rename files according to snowflake map')
     parser.add_option(
-        '-u', '--unsnowflakerize', action="store_true", dest='u',
-        help='reset files to original name based on snowflake map')
+        '-u', '--unsnowflakify', action="store_true", dest='u',
+        help='reset files to origin name based on snowflake map')
     parser.add_option(
         '-m', '--gen-qa-map', action="store_true", dest='m',
-        help='generate csv mapping from qa names to original files')
+        help='generate csv mapping from qa names to origin names')
     parser.add_option(
         '-q', '--gen-qa-wav', action="store_true", dest='q',
-        help='rename qa wav files to include original name prefix')
+        help='rename qa wav files to include origin prefix')
     parser.add_option(
         '-z', '--undo-qa-wav', action="store_true", dest='z',
-        help='remove prefix from QA wav file, restore to original QA name')
+        help='remove prefix and restore QA file to original QA name')
 
     (options, args) = parser.parse_args()
 
