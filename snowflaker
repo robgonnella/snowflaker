@@ -4,22 +4,23 @@ import sys
 import os
 import csv
 import re
+from optparse import OptionParser
+
+RED = '\033[1;31m'
+GREEN = '\033[1;32m'
+BLUE = '\033[1;34m'
+CYAN = '\033[1;36m'
+RESET = '\033[1;0m'
+
 
 def die(msg):
-    sys.exit('\33[1;31m%s\033[1;0m' % msg)
+    sys.exit('%s%s%s' %(RED, msg, RESET))
 
 def get_input(msg):
-    return raw_input('\033[1;32m%s\033[1;0m' % msg).strip()
+    return raw_input('%s%s%s' %(GREEN, msg, RESET)).strip()
 
-def print_color(msg):
-    print('\033[1;32m%s\033[1;0m' %msg)
-
-def get_cmd():
-    print_color(
-        'What would you like to do?'
-        ' Your options are \"snowflakerize\", \"undo\", or \"reverse-qa\"')
-    return get_input('Type \"s\" for snowflakerize, \"u\" for undo, or '
-        '\"r\" for reverse-qa: ')
+def print_color(msg, color = GREEN):
+    print('%s%s%s' %(color, msg, RESET))
 
 def get_target_directory():
     print "\n"
@@ -66,12 +67,14 @@ def convert(target_dir, snowflake_map):
         ext = file_parts[1]
         if filename in snowflake_map:
             new_name = snowflake_map[filename] + '.' + ext
-            print('\033[1;32mSnowflakerizing!\033[1;0m'
-                ' %s -----> %s' %(file, new_name))
+            success_msg = 'Snowflakerizing! %s -----> %s' %(file, new_name)
+            print_color(success_msg)
             os.rename(file, new_name)
+        elif filename in snowflake_map.values():
+            print_color(('Skipping %s: Already a snowflake' % file), BLUE)
         else:
-            print('Skipping %s: Not in list of acceptable snowflakes'
-                ' or already snowflakerized' % file)
+            skip_msg = ('Skipping %s: Doesn\'t map to a snowflake' % file)
+            print_color(skip_msg, BLUE)
 
 def undo(target_dir, snowflake_map):
     for file in os.listdir(target_dir):
@@ -82,13 +85,13 @@ def undo(target_dir, snowflake_map):
             for origin in snowflake_map:
                 if snowflake_map[origin] == filename:
                     new_name = origin + '.' + ext
-                    print('\033[1;32mResetting\033[1;0m'
-                    ' %s -----> %s' %(file, new_name))
+                    reset_msg = 'Resetting %s -----> %s' %(file, new_name)
+                    print_color(reset_msg)
                     os.rename(file, new_name)
         else:
-            print 'Skipping %s: Not a snowflake' % file
+            print_color(('Skipping %s: Not a snowflake' % file), BLUE)
 
-def reverse(qa_file, snowflake_map):
+def qa_map(qa_file, snowflake_map):
     new_file = [];
     dirname = os.path.dirname(qa_file)
     outname = 'qa_mapping.csv'
@@ -106,15 +109,16 @@ def reverse(qa_file, snowflake_map):
         ext = filename.split('.')[1]
         file_id = filename.split('_')[6]
         candidate = p_name.group(0) + '_' + file_id
-        print 'Candidate: %s' % candidate
+        print '\n'
+        print_color(('Candidate: %s' % candidate), BLUE)
         if (candidate in snowflake_map.values()):
             for origin in snowflake_map:
                 if snowflake_map[origin] == candidate:
                     new_name = origin + '.' + ext
                     row.append(new_name)
                     new_file.append(row)
-                    print("\033[1;32mMapping "
-                        "%s ---> %s\033[1;0m\n" %(filename, new_name))
+                    map_msg = 'Mapping %s ---> %s' %(filename, new_name)
+                    print_color(map_msg)
                     break
         else:
             new_file.append(row)
@@ -122,33 +126,153 @@ def reverse(qa_file, snowflake_map):
         writer = csv.writer(outfile, lineterminator='\n')
         writer.writerows(new_file)
         print "\n"
-        print '========================='
-        print "\033[1;36mMappings can be found at: \033[1;0m%s" % out_path
-        print '========================='
+        print_color('=========================', BLUE)
+        print_color(('Mappings can be found at: %s' % out_path), CYAN)
+        print_color('=========================', BLUE)
         print "\n"
 
-def run():
-    cmd = get_cmd()
-    if (cmd != 's' and cmd != 'u' and cmd != 'r'):
-        die('Did not understand command \"%s\"' %cmd)
+def qa_wav(target_dir, snowflake_map):
+    for file in os.listdir(target_dir):
+        if re.search('.DS_Store', file):
+            continue
+        if not re.match('RAW', file):
+            print_color(('Skipping %s: Not a QA file' % file), BLUE)
+            continue
+        candidate = False
+        file_session_id = file.split('_')[6]
+        file_pname = re.search(r'[Pp]\d{4}', file)
+        if file_pname:
+            candidate = file_pname.group(0) + '_' + file_session_id
+            print '\n'
+            print_color(('Checking candidate: %s' % candidate), BLUE)
+            if (candidate in snowflake_map.values()):
+                for origin in snowflake_map:
+                    if snowflake_map[origin] == candidate:
+                        print_color('Match!', BLUE)
+                        new_name = origin + '_' + file
+                        convert_msg = (
+                            'Converting QA file %s ---> %s' %(file, new_name))
+                        print_color(convert_msg)
+                        os.rename(file, new_name)
+                        break
 
-    if cmd != 'r':
-        target_dir = get_target_directory()
-        os.chdir(target_dir)
+def reverse_qa_wav(target_dir, snowflake_map):
+    print "\n"
+    for file in os.listdir(target_dir):
+        if not re.match('\d{2,3}_', file):
+            print '\n'
+            print_color(
+                ('Skipping file %s: Doesn\'t follow format' % file), BLUE)
+            continue
+        parts = file.split('_')
+        prefix = parts.pop(0)
+        origin = '_'.join(parts)
+        prefix_msg = 'Removing prefix: %s' %prefix
+        print '\n'
+        print_color(prefix_msg, BLUE)
+        print_color('Converted to ---> %s' % origin)
+        os.rename(file, origin)
 
-    if cmd == 'r':
-        qa_file = get_qa_csv()
 
+
+#################################################################
+#################################################################
+########################## RUN PROGRAM ##########################
+#################################################################
+
+def snowflakerize():
+    target_dir = get_target_directory()
+    os.chdir(target_dir)
     csv_path = get_csv_path()
     snowflake_map = create_snowflake_map(csv_path)
+    convert(target_dir, snowflake_map)
 
+def unsnowflakerize():
+    target_dir = get_target_directory()
+    os.chdir(target_dir)
+    csv_path = get_csv_path()
+    snowflake_map = create_snowflake_map(csv_path)
+    undo(target_dir, snowflake_map)
 
-    if cmd == 'u':
-        undo(target_dir, snowflake_map)
-    elif cmd == 's':
-        convert(target_dir, snowflake_map)
+def generate_qa_map():
+    qa_file = get_qa_csv()
+    csv_path = get_csv_path()
+    snowflake_map = create_snowflake_map(csv_path)
+    qa_map(qa_file, snowflake_map)
+
+def generate_qa_wav():
+    target_dir = get_target_directory()
+    os.chdir(target_dir)
+    csv_path = get_csv_path()
+    snowflake_map = create_snowflake_map(csv_path)
+    qa_wav(target_dir, snowflake_map)
+
+def undo_qa_wav():
+    target_dir = get_target_directory()
+    os.chdir(target_dir)
+    csv_path = get_csv_path()
+    snowflake_map = create_snowflake_map(csv_path)
+    reverse_qa_wav(target_dir, snowflake_map)
+
+def run():
+    logo = """
+
+    , ,    ,      ,    ,     ,     ,   ,      ,     ,     ,      ,      ,
+    ,       ,     ,    ,       ,   .____. ,   ,     ,      ,       ,      ,
+     ,    ,   ,    ,     ,   ,   , |   :|         ,   , ,   ,   ,       ,
+       ,        ,    ,     ,     __|====|__ ||||||  ,        ,      ,      ,
+     ,   ,    ,   ,     ,    , *  / o  o \  ||||||,   ,  ,        ,    ,
+    ,   ,   ,         ,   ,     * | -=   |  \====/ ,       ,   ,    ,     ,
+       ,  ,    ,   ,           , U==\__//__. \\//    ,  ,        ,    ,
+    ,   ,  ,    ,    ,    ,  ,   / \\==// \ \ ||  ,   ,      ,          ,
+     ,  ,    ,    ,     ,      ,|    o ||  | \||   ,      ,     ,   ,     ,
+    ,      ,    ,    ,      ,   |    o ""  |\_|B),    ,  ,    ,       ,
+      ,  ,    ,   ,     ,      , \__  --__/   ||  ,        ,      ,     ,
+    ,  ,   ,       ,     ,   ,  /          \  ||,   ,   ,      ,    ,    ,
+     ,      ,   ,     ,        |            | ||      ,  ,   ,    ,   ,
+    ,    ,    ,   ,  ,    ,   ,|            | || ,  ,  ,   ,   ,     ,  ,
+     ------_____---------____---\__ --_  __/__LJ__---------________-----___
+    """
+    print_color(logo, CYAN)
+    parser = OptionParser(usage='Usage: %prog [option]')
+    parser.add_option(
+        '-s', '--snowflakerize', action="store_true", dest='s',
+        help='rename files according to snowflake map')
+    parser.add_option(
+        '-u', '--unsnowflakerize', action="store_true", dest='u',
+        help='reset files to original name based on snowflake map')
+    parser.add_option(
+        '-m', '--gen-qa-map', action="store_true", dest='m',
+        help='generate csv mapping from qa names to original files')
+    parser.add_option(
+        '-q', '--gen-qa-wav', action="store_true", dest='q',
+        help='rename qa wav files to include original name prefix')
+    parser.add_option(
+        '-z', '--undo-qa-wav', action="store_true", dest='z',
+        help='remove prefix from QA wav file, restore to original QA name')
+
+    (options, args) = parser.parse_args()
+
+    optcount = 0
+    for opt, value in options.__dict__.items():
+        if value:
+            optcount += 1
+
+    if optcount > 1:
+        parser.error('Only one option at a time is supported\n')
+
+    if options.s:
+        snowflakerize()
+    elif options.u:
+        unsnowflakerize()
+    elif options.m:
+        generate_qa_map()
+    elif options.q:
+        generate_qa_wav()
+    elif options.z:
+        undo_qa_wav()
     else:
-        reverse(qa_file, snowflake_map)
+        parser.print_help()
 
 run()
 
